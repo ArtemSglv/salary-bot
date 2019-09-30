@@ -10,8 +10,12 @@ telebot.apihelper.proxy = {'https': ''}
 bot = telebot.TeleBot('')
 # keyboard = telebot.types.ReplyKeyboardMarkup(True, True)
 # keyboard.row('Yes', 'No')
-
+# current User
 curUser = User()
+
+
+def is_login():
+    return curUser.id is not None
 
 
 @bot.message_handler(commands=['new_user'])
@@ -29,14 +33,23 @@ def process_salary_step(m):
         msg = bot.reply_to(m, 'Salary should be a number. What is your salary?')
         bot.register_next_step_handler(msg, process_salary_step)
         return
-    db.execute_insert_query('insert into users (user_id, name, salary) values (%s, %s, %s)', (curUser.id, curUser.name, curUser.salary))
+    db.execute_insert_query('insert into users (user_id, name, salary) values (%s, %s, %s)',
+                            (curUser.id, curUser.name, curUser.salary))
     bot.send_message(m.chat.id, 'User successfully registered!')
 
 
 @bot.message_handler(commands=['record_progress'])
 def record_progress_message(message):
-    print(curUser.id)
-    if curUser.id is not None:
+    if is_login():
+        msg = bot.send_message(message.chat.id, 'Enter your hours worked:')
+        bot.register_next_step_handler(msg, record_progress)
+    else:
+        check_user(message)
+
+
+@bot.message_handler(commands=['show_my_statistics'])
+def show_statistics(message):
+    if is_login():
         msg = bot.send_message(message.chat.id, 'Enter your hours worked:')
         bot.register_next_step_handler(msg, record_progress)
     else:
@@ -51,7 +64,7 @@ def record_progress(m):
 
 @bot.message_handler(func=lambda m: True, content_types=['text'])
 def check_user(m):
-    user = db.execute_select_query('select * from users where user_id = %s', (m.from_user.id, ))
+    user = db.execute_select_query('select * from users where user_id = %s', (m.from_user.id,))
     print(user)
     if len(user) != 0:
         curUser.id = user[0][0]
